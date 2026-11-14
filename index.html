@@ -21,6 +21,9 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;width:min(100vw,cal
 #padL{left:calc(4vw + env(safe-area-inset-left))}#padR{right:calc(4vw + env(safe-area-inset-right))}
 .pad{bottom:calc(4vh + env(safe-area-inset-bottom))}
 #fs{position:fixed;top:calc(10px + env(safe-area-inset-top));right:calc(10px + env(safe-area-inset-right));z-index:3;width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.3);display:none;align-items:center;justify-content:center;cursor:pointer}
+#fshelp{position:fixed;inset:0;z-index:5;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.72)}#fshelp.show{display:flex}
+#fshelp div{max-width:min(420px,86vw);background:#14142a;border:3px solid #ffd24a;border-radius:14px;padding:18px 20px;color:#fff;font:15px/1.45 monospace;text-align:center}
+#fshelp b{color:#ffd24a;font-size:17px}#fshelp em{display:block;margin-top:12px;color:#9fe0d0;font-style:normal;font-size:13px}
 #fs svg{width:22px;height:22px}#fs.show{display:flex}#fs:hover{background:rgba(255,210,90,.35)}
 .pad div{width:68px;height:68px;border-radius:12px;background:rgba(255,255,255,.13);border:2px solid rgba(255,255,255,.3);color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center}
 .pad div.on{background:rgba(255,210,90,.45)}
@@ -35,6 +38,7 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;width:min(100vw,cal
 </head>
 <body>
 <div id="wrap"><canvas id="c"></canvas></div>
+<div id="fshelp"><div id="fshelptx"></div></div>
 <div id="fs" title="Full screen (F)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="square"><path id="fsi" d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6"/></svg></div>
 <div class="pad" id="padL"><div data-p="0" data-k="left">&#9664;</div><div data-p="0" data-k="right">&#9654;</div></div>
 <div class="pad" id="padR"><div data-p="0" data-k="down">&#9660;</div><div data-p="0" data-k="up">&#9650;</div><div class="j" data-p="0" data-k="jump">JUMP</div></div>
@@ -220,6 +224,13 @@ function goFS(on){try{if(on===undefined)on=!fsEl();
  if(on&&!fsEl()){const p=DE.requestFullscreen?DE.requestFullscreen({navigationUI:'hide'}):DE.webkitRequestFullscreen();
   Promise.resolve(p).then(()=>{try{screen.orientation.lock('landscape').catch(()=>{})}catch(e){}}).catch(()=>{})}
  else if(!on&&fsEl()){const p=document.exitFullscreen?document.exitFullscreen():document.webkitExitFullscreen();Promise.resolve(p).catch(()=>{})}}catch(e){}}
+const isIOS=/iPhone|iPod|iPad/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const touchDev=(()=>{try{return matchMedia('(pointer:coarse)').matches}catch(e){return false}})();
+const fsHelp=!fsOK&&!standalone&&touchDev,helpEl=document.getElementById('fshelp');
+if(fsHelp){fsBtn.classList.add('show');document.getElementById('fshelptx').innerHTML=isIOS?
+ '<b>PLAY FULL SCREEN</b><br><br>iPhone doesn\'t let web pages go full screen, but you can install the game:<br><br>1. Tap the <b>Share</b> button in Safari<br>2. Choose <b>Add to Home Screen</b><br>3. Open the game from its new icon<br><em>Tap anywhere to close</em>':
+ '<b>PLAY FULL SCREEN</b><br><br>This browser doesn\'t allow full screen. Open the page in <b>Chrome</b>, then use the <b>&#8942;</b> menu and choose <b>Add to Home screen</b>.<br><em>Tap anywhere to close</em>'}
+const showHelp=on=>helpEl.classList.toggle('show',on);
 if(fsOK){fsBtn.classList.add('show');document.addEventListener('fullscreenchange',fsIcon);document.addEventListener('webkitfullscreenchange',fsIcon);
  fsBtn.addEventListener('click',e=>{e.stopPropagation();goFS()});fsBtn.addEventListener('mousedown',e=>e.stopPropagation())}
 addEventListener('keydown',e=>{if(e.code==='KeyF'&&!e.repeat&&fsOK)goFS()});
@@ -227,8 +238,9 @@ const inBox=(el,x,y)=>{const r=el.getBoundingClientRect();return r.width&&x>=r.l
 const fsTouch=new Set();let autoFS=false;
 const onTouch=e=>{e.preventDefault();audio();
  for(const t of e.changedTouches){
-  if(fsOK&&e.type==='touchstart'&&inBox(fsBtn,t.clientX,t.clientY)){fsTouch.add(t.identifier);continue}
-  if(fsTouch.has(t.identifier)){if(e.type==='touchend'){fsTouch.delete(t.identifier);goFS()}else if(e.type==='touchcancel')fsTouch.delete(t.identifier);continue}
+  if(helpEl.classList.contains('show')){if(e.type==='touchend')showHelp(false);continue}
+  if((fsOK||fsHelp)&&e.type==='touchstart'&&inBox(fsBtn,t.clientX,t.clientY)){fsTouch.add(t.identifier);continue}
+  if(fsTouch.has(t.identifier)){if(e.type==='touchend'){fsTouch.delete(t.identifier);if(fsOK)goFS();else showHelp(true)}else if(e.type==='touchcancel')fsTouch.delete(t.identifier);continue}
   if(e.type==='touchend'||e.type==='touchcancel'){touchBtn.delete(t.identifier);if(e.type==='touchend'&&autoFS){autoFS=false;goFS(true)}continue}
   const b=hitBtn(t.clientX,t.clientY);
   if(e.type==='touchstart'&&!b){const st=state;tapCanvas(t.clientX,t.clientY);if(fsOK&&!fsEl()&&st==='title'&&anyKey)autoFS=true}
@@ -891,7 +903,7 @@ function render(){
  if(state!=='win'){for(const p of players)for(let i=0;i<MAXHP;i++)heart(6+i*16,5+p.i*14,i<p.hp,2);
  relicIcon(96,12,hasRelic);
  textS(g,'TREASURE '+got+'/'+total,108,7,'#ffe9a0');textS(g,'LEVEL '+(cur+1)+'/'+LEVELS.length,108,15,'#9fe0d0');
- const sc='SCORE '+String(score).padStart(6,'0');textS(g,sc,W-(fsOK?30:6)-tw(sc),7,'#ffffff');}
+ const sc='SCORE '+String(score).padStart(6,'0');textS(g,sc,W-(fsOK||fsHelp?30:6)-tw(sc),7,'#ffffff');}
  if(state==='play'){
   if(stateT<170){g.globalAlpha=Math.min(1,(170-stateT)/40);textC(g,L.name,54,'#ffd24a',3);const nm=two?'TEAM':NAMES[players[0].ch];textC(g,cur===0?'GO '+nm+'! FIND THE RELIC, THEN THE EXIT':'GO '+nm+'!',76,'#f2eee0',cur===0?1:2);if(two)textC(g,'P1: ARROWS, UP TO JUMP      P2: W A S D, W TO JUMP',92,'#7af0a0',1);else if(L.ice)textC(g,'CAREFUL - THE ICE IS SLIPPY!',94,'#bfe8ff',2);g.globalAlpha=1}
   if(msgT>0)textC(g,msg,H-22,'#fff6c0',msg.length>30?1:2);
