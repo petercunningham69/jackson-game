@@ -25,14 +25,21 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;width:min(100vw,cal
 .pad div{width:68px;height:68px;border-radius:12px;background:rgba(255,255,255,.13);border:2px solid rgba(255,255,255,.3);color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center}
 .pad div.on{background:rgba(255,210,90,.45)}
 #padR .j{width:92px;height:92px;border-radius:50%;font-size:14px;font-weight:bold}
-@media (pointer:coarse){.pad{display:flex;align-items:flex-end}}
+.pad2{gap:7px}.pad2 div{width:min(54px,8.6vw);height:min(54px,8.6vw);font-size:17px}.pad2 .j{width:min(64px,10vw)!important;height:min(64px,10vw)!important;border-radius:50%;font-size:11px;font-weight:bold}
+.pad2 span{align-self:center;font:bold 13px monospace;color:#ffd24a;text-shadow:1px 1px #000;margin-right:2px}#p2pad span{color:#7af0a0}
+#p1pad{left:calc(2vw + env(safe-area-inset-left))}#p2pad{right:calc(2vw + env(safe-area-inset-right))}
+#p1pad div{border-color:rgba(255,210,74,.55)}#p2pad div{border-color:rgba(122,240,160,.55)}#p2pad div.on{background:rgba(122,240,160,.45)}
+@media (pointer:coarse){.pad{display:flex;align-items:flex-end}body.two #padL,body.two #padR{display:none}body:not(.two) .pad2{display:none}}
+@media not (pointer:coarse){.pad2{display:none}}
 </style>
 </head>
 <body>
 <div id="wrap"><canvas id="c"></canvas></div>
 <div id="fs" title="Full screen (F)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="square"><path id="fsi" d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6"/></svg></div>
-<div class="pad" id="padL"><div data-k="left">&#9664;</div><div data-k="right">&#9654;</div></div>
-<div class="pad" id="padR"><div data-k="down">&#9660;</div><div data-k="up">&#9650;</div><div class="j" data-k="jump">JUMP</div></div>
+<div class="pad" id="padL"><div data-p="0" data-k="left">&#9664;</div><div data-p="0" data-k="right">&#9654;</div></div>
+<div class="pad" id="padR"><div data-p="0" data-k="down">&#9660;</div><div data-p="0" data-k="up">&#9650;</div><div class="j" data-p="0" data-k="jump">JUMP</div></div>
+<div class="pad pad2" id="p1pad"><span>P1</span><div data-p="0" data-k="left">&#9664;</div><div data-p="0" data-k="right">&#9654;</div><div data-p="0" data-k="down">&#9660;</div><div data-p="0" data-k="up">&#9650;</div><div class="j" data-p="0" data-k="jump">JUMP</div></div>
+<div class="pad pad2" id="p2pad"><span>P2</span><div data-p="1" data-k="left">&#9664;</div><div data-p="1" data-k="right">&#9654;</div><div data-p="1" data-k="down">&#9660;</div><div data-p="1" data-k="up">&#9650;</div><div class="j" data-p="1" data-k="jump">JUMP</div></div>
 <script>
 (()=>{
 'use strict';
@@ -191,11 +198,18 @@ const btns=[...document.querySelectorAll('.pad div')];
 const hitBtn=(x,y)=>{let best=null,bd=1e9;for(const b of btns){const r=b.getBoundingClientRect();if(!r.width)continue;const pad=14,dx=Math.max(r.left-pad-x,0,x-r.right-pad),dy=Math.max(r.top-pad-y,0,y-r.bottom-pad);
  if(dx===0&&dy===0){const d=Math.hypot(x-(r.left+r.right)/2,y-(r.top+r.bottom)/2);if(d<bd){bd=d;best=b}}}return best};
 const touchBtn=new Map();
-function syncTouch(){const I=kb[0],on=new Set(touchBtn.values());
- for(const b of btns){const k=b.dataset.k,a=on.has(b);if(a&&!I[k]){if(k==='jump'){I.jp=true;anyKey=true}if(k==='up')I.up2=true}
-  if(a!==b.classList.contains('on')){I[k]=a?1:0;b.classList.toggle('on',a)}}}
+let tPrev=new Set();
+function syncTouch(){const on=new Set(touchBtn.values()),want=new Set();for(const b of on)want.add(b.dataset.p+b.dataset.k);
+ for(const id of new Set([...want,...tPrev])){const I=kb[+id[0]],k=id.slice(1),a=want.has(id);if(a===tPrev.has(id))continue;
+  if(a){if(k==='jump'){I.jp=true;anyKey=true}if(k==='up')I.up2=true}I[k]=a?1:0}
+ tPrev=want;for(const b of btns)b.classList.toggle('on',on.has(b))}
+const TB={hero:{x:114,y:134,w:132,h:22},two:{x:252,y:134,w:132,h:22}};
+const inTB=(b,x,y)=>x>=b.x-3&&x<=b.x+b.w+3&&y>=b.y-3&&y<=b.y+b.h+3;
 function tapCanvas(x,y){const r=cv.getBoundingClientRect(),gx=(x-r.left)/r.width*W,gy=(y-r.top)/r.height*H;
- if(state==='title'&&gx<100&&gy>34&&gy<166)heroKey=true;else anyKey=true}
+ if(state==='title'){if(inTB(TB.hero,gx,gy)||(gx<100&&gy>34&&gy<166)){if(unlock&2)heroKey=true;else lockMsg='FINISH ALL 10 LEVELS TO UNLOCK HARRISON';return}
+  if(inTB(TB.two,gx,gy)){if(unlock&1)twoKey=true;else lockMsg='FINISH LEVEL 5 TO UNLOCK TWO PLAYERS';return}}
+ anyKey=true}
+let lockMsg='',lockT=0;
 /* fullscreen: button, F key, and automatically when a touch player starts the game */
 const fsBtn=document.getElementById('fs'),DE=document.documentElement;
 const standalone=(()=>{try{return matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
@@ -217,7 +231,7 @@ const onTouch=e=>{e.preventDefault();audio();
   if(fsTouch.has(t.identifier)){if(e.type==='touchend'){fsTouch.delete(t.identifier);goFS()}else if(e.type==='touchcancel')fsTouch.delete(t.identifier);continue}
   if(e.type==='touchend'||e.type==='touchcancel'){touchBtn.delete(t.identifier);if(e.type==='touchend'&&autoFS){autoFS=false;goFS(true)}continue}
   const b=hitBtn(t.clientX,t.clientY);
-  if(e.type==='touchstart'&&!b){if(fsOK&&!fsEl()&&state==='title')autoFS=true;tapCanvas(t.clientX,t.clientY)}
+  if(e.type==='touchstart'&&!b){const st=state;tapCanvas(t.clientX,t.clientY);if(fsOK&&!fsEl()&&st==='title'&&anyKey)autoFS=true}
   if(b)touchBtn.set(t.identifier,b);else touchBtn.delete(t.identifier)}
  syncTouch()};
 for(const ev of['touchstart','touchmove','touchend','touchcancel'])document.addEventListener(ev,onTouch,{passive:false});
@@ -420,11 +434,11 @@ let state='title',cur=0,grid,LW,pal,L;
 let players=[],ents,picks,darts,parts,traps,crum,torches,cps,goal,spawn,movers,springT,ropes,axes,icicles,fires;
 let two=false,opt2=false,hero=0,unlock=0,justUnlocked='';
 const NAMES=['JACKSON','HARRISON'];
-let total,got,hasRelic,score=0,tick=0,stateT=0,msg='',msgT=0,shake=0,paused=false,hi=0,saved=0,stars=0;
+let total,got,hasRelic,score=0,tick=0,stateT=0,msg='',msgT=0,shake=0,paused=false,hi=0,stars=0;
 const cam={x:0,y:MAXCY};
 let layers=[],skyC,tileC,vigC,glowC,shaftC,motes=[];
 const[scrC,scrG]=mk(48,48);
-try{hi=+localStorage.getItem('jackson-hi')||0;saved=Math.min(LEVELS.length-1,+localStorage.getItem('jackson-level')||0);unlock=+localStorage.getItem('jackson-unlock')||0}catch(e){}
+try{hi=+localStorage.getItem('jackson-hi')||0;unlock=+localStorage.getItem('jackson-unlock')||0}catch(e){}
 const store=(k,v)=>{try{localStorage.setItem(k,String(v))}catch(e){}};
 
 const tile=(tx,ty)=>(ty<0||ty>=ROWS||tx<0||tx>=LW)?' ':grid[ty][tx];
@@ -690,8 +704,8 @@ function updEnts(){
    justUnlocked='';const u0=unlock;if(cur>=4)unlock|=1;if(G.t==='X')unlock|=2;
    if(unlock!==u0){store('jackson-unlock',unlock);justUnlocked=(unlock&2)&&!(u0&2)?'HARRISON UNLOCKED! PRESS C ON THE TITLE SCREEN':'TWO PLAYER MODE UNLOCKED! PRESS 2 ON THE TITLE SCREEN'}
    for(const q of players)letGo(q);
-   if(G.t==='X'){state='win';stateT=0;saved=0;store('jackson-level',0);S('win')}
-   else{state='clear';stateT=0;saved=cur+1;store('jackson-level',saved);S('clear')}}
+   if(G.t==='X'){state='win';stateT=0;S('win')}
+   else{state='clear';stateT=0;S('clear')}}
   else if(msgT<=0){msg=G.t==='X'?'THE CHEST IS LOCKED - FIND THE GOLDEN RELIC!':'THE DOOR IS SEALED - FIND THE RELIC!';msgT=120}}
  }
 }
@@ -701,13 +715,16 @@ function updMovers(){for(const m of movers){m.a+=.02;m.px=m.x;m.py=m.y;const k=(
 function update(){
  tick++;stateT++;if(msgT>0)msgT--;if(shake>0)shake--;
  pollPads();musicTick();
+ {const t2=two&&state!=='title';if(t2!==document.body.classList.contains('two'))document.body.classList.toggle('two',t2)}
+ if(lockMsg){lockT=120;msg=lockMsg;lockMsg=''}if(lockT>0)lockT--;
  const go=anyKey;anyKey=false;const ng=newGame;newGame=false;const hk=heroKey;heroKey=false;const tk=twoKey;twoKey=false;
  if(state!=='play'){readIn(0);readIn(1)}
- if(state==='title'){cam.x=(sin(tick*.0025-1.5)*.5+.5)*(LW*T-W);cam.y=MAXCY;if(ng){saved=0;store('jackson-level',0)}
-  if(hk&&(unlock&2)){hero=1-hero;S('on')}
+ if(state==='title'){cam.x=(sin(tick*.0025-1.5)*.5+.5)*(LW*T-W);cam.y=MAXCY;
+  if(hk||tk)lockT=0;if(hk&&(unlock&2)){hero=1-hero;S('on')}
   if(tk&&(unlock&1)){opt2=!opt2;S(opt2?'on':'off')}
-  if(go&&stateT>20){score=0;two=opt2;loadLevel(saved);state='play';stateT=0}return}
- if(state==='over'){if(go&&stateT>40){players[0].hp=MAXHP;respawn(players[0]);state='play';stateT=200}return}
+  if(go&&stateT>20){score=0;two=opt2;loadLevel(0);state='play';stateT=0}return}
+ if(state==='over'){if(go&&stateT>25){players[0].hp=MAXHP;respawn(players[0]);state='play';stateT=200}
+  else if(stateT>=300){two=false;score=0;loadLevel(0);state='title';stateT=0}return}
  if(state==='clear'){updParts();if(go&&stateT>50){loadLevel(cur+1);state='play';stateT=0}return}
  if(state==='win'){updParts();
   if(goal&&tick%3===0)parts.push({x:goal.x+16,y:goal.y+6,vx:(Math.random()-.5)*3.4,vy:-3-Math.random()*3.5,life:70,col:['#ffd24a','#fff6c0',pal.gem,'#ff7a8a','#7ae0ff'][fl(Math.random()*5)],g:.12});
@@ -860,10 +877,13 @@ function render(){
   textS(g,'AND THE SECRET TREASURE',114,84,'#ffffff',3);
   textS(g,'FIND THE RELICS. DODGE THE TRAPS. GRAB THE GOLD!',114,106,'#9fe0d0',1);
   if((tick>>5)&1)textS(g,'PRESS SPACE OR TAP TO PLAY',114,120,'#ffffff',2);
-  textS(g,saved>0?'CONTINUES AT LEVEL '+(saved+1)+' OF 10      N: START A NEW GAME':'10 LEVELS TO EXPLORE',114,138,'#ffd24a',1);
-  textS(g,(unlock&2)?'C: CHANGE HERO - PLAYING AS '+NAMES[hero]:'FINISH ALL 10 LEVELS TO UNLOCK HARRISON',114,148,(unlock&2)?'#7af0a0':'#8a8aa0',1);
-  textS(g,(unlock&1)?'2: TWO PLAYER MODE - '+(opt2?'ON':'OFF'):'FINISH LEVEL 5 TO UNLOCK TWO PLAYER MODE',114,158,(unlock&1)?'#7af0a0':'#8a8aa0',1);
-  if(opt2){textC(g,'PLAYER 1 ('+NAMES[hero]+'): ARROW KEYS, UP TO JUMP',176,'#ffd24a',1);textC(g,'PLAYER 2 ('+NAMES[1-hero]+'): W A S D KEYS, W TO JUMP        GAMEPADS WORK TOO',186,'#7af0a0',1)}
+  const tbtn=(b,label,sub,on,act)=>{g.fillStyle=act?(on?'rgba(60,170,100,.85)':'rgba(30,40,70,.85)'):'rgba(30,30,40,.7)';g.fillRect(b.x,b.y,b.w,b.h);
+   g.fillStyle=act?(on?'#9af7b8':'#ffd24a'):'#5a5a6a';g.fillRect(b.x,b.y,b.w,1);g.fillRect(b.x,b.y+b.h-1,b.w,1);g.fillRect(b.x,b.y,1,b.h);g.fillRect(b.x+b.w-1,b.y,1,b.h);
+   textS(g,label,b.x+fl((b.w-tw(label,1))/2),b.y+4,act?'#ffffff':'#8a8aa0',1);textS(g,sub,b.x+fl((b.w-tw(sub,1))/2),b.y+13,act?(on?'#d8ffe4':'#ffd24a'):'#6a6a7a',1)};
+  tbtn(TB.hero,(unlock&2)?'HERO: '+NAMES[hero]:'HERO: HARRISON',(unlock&2)?'TAP TO SWAP (C)':'LOCKED - BEAT LEVEL 10',hero===1,!!(unlock&2));
+  tbtn(TB.two,'2 PLAYERS: '+(opt2?'ON':'OFF'),(unlock&1)?'TAP TO SWITCH (2)':'LOCKED - BEAT LEVEL 5',opt2,!!(unlock&1));
+  if(lockT>0)textC(g,msg,162,'#ffb0b0',1);
+  if(opt2){textC(g,'PLAYER 1 ('+NAMES[hero]+'): ARROW KEYS, UP TO JUMP  -  LEFT TOUCH BUTTONS',176,'#ffd24a',1);textC(g,'PLAYER 2 ('+NAMES[1-hero]+'): W A S D KEYS, W TO JUMP  -  RIGHT TOUCH BUTTONS',186,'#7af0a0',1)}
   else{textC(g,'ARROWS OR WASD: MOVE     SPACE: JUMP (PRESS AGAIN FOR A DOUBLE JUMP!)',176,'#d8d0c0',1);
    textC(g,'UP/DOWN: CLIMB    JUMP TO GRAB ROPES    JUMP ON BADDIES    M: SOUND    F: FULL SCREEN',186,'#d8d0c0',1)}
   if(hi)textC(g,'BEST SCORE: '+hi,202,'#ffd24a',1);
@@ -871,15 +891,18 @@ function render(){
  if(state!=='win'){for(const p of players)for(let i=0;i<MAXHP;i++)heart(6+i*16,5+p.i*14,i<p.hp,2);
  relicIcon(96,12,hasRelic);
  textS(g,'TREASURE '+got+'/'+total,108,7,'#ffe9a0');textS(g,'LEVEL '+(cur+1)+'/'+LEVELS.length,108,15,'#9fe0d0');
- const sc='SCORE '+String(score).padStart(6,'0');textS(g,sc,W-6-tw(sc),7,'#ffffff');}
+ const sc='SCORE '+String(score).padStart(6,'0');textS(g,sc,W-(fsOK?30:6)-tw(sc),7,'#ffffff');}
  if(state==='play'){
   if(stateT<170){g.globalAlpha=Math.min(1,(170-stateT)/40);textC(g,L.name,54,'#ffd24a',3);const nm=two?'TEAM':NAMES[players[0].ch];textC(g,cur===0?'GO '+nm+'! FIND THE RELIC, THEN THE EXIT':'GO '+nm+'!',76,'#f2eee0',cur===0?1:2);if(two)textC(g,'P1: ARROWS, UP TO JUMP      P2: W A S D, W TO JUMP',92,'#7af0a0',1);else if(L.ice)textC(g,'CAREFUL - THE ICE IS SLIPPY!',94,'#bfe8ff',2);g.globalAlpha=1}
   if(msgT>0)textC(g,msg,H-22,'#fff6c0',msg.length>30?1:2);
   if(paused){g.fillStyle='rgba(0,0,0,.5)';g.fillRect(0,0,W,H);textC(g,'PAUSED',95,'#fff',4)}
  }else if(state==='over'){
   g.fillStyle='rgba(0,0,0,.55)';g.fillRect(0,0,W,H);
-  textC(g,'OOPS!',66,'#ffd24a',6);textC(g,"DON'T WORRY - HAVE ANOTHER GO!",108,'#f2eee0',2);
-  if(stateT>40&&(tick>>5)&1)textC(g,'PRESS SPACE OR TAP',138,'#fff',2)
+  const left=Math.max(1,5-fl(stateT/60));
+  textC(g,'OOPS!',30,'#ffd24a',6);textC(g,'CONTINUE?',70,'#f2eee0',3);
+  const pulse=1-(stateT%60)/60;textC(g,String(left),92,pulse>.75?'#ffffff':'#ffd24a',8);
+  g.fillStyle='rgba(255,255,255,.2)';g.fillRect(W/2-60,148,120,4);g.fillStyle='#ffd24a';g.fillRect(W/2-60,148,fl(120*Math.max(0,1-stateT/300)),4);
+  if((tick>>4)&1)textC(g,'TAP OR PRESS SPACE TO KEEP GOING!',162,'#fff',2)
  }else if(state==='clear'){
   g.fillStyle='rgba(0,0,0,.5)';g.fillRect(0,0,W,90);
   textC(g,'LEVEL COMPLETE!',10,'#ffd24a',4);
