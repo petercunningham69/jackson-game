@@ -213,9 +213,10 @@ function syncTouch(){const on=new Set(touchBtn.values()),want=new Set();for(cons
 const TB={hero:{x:150,y:134,w:118,h:22},two:{x:274,y:134,w:118,h:22}};let pickHero=-1;
 const inTB=(b,x,y)=>x>=b.x-3&&x<=b.x+b.w+3&&y>=b.y-3&&y<=b.y+b.h+3;
 function tapCanvas(x,y){const r=cv.getBoundingClientRect(),gx=(x-r.left)/r.width*W,gy=(y-r.top)/r.height*H;
- if(state==='title'){const onH=gx<70&&gy>18&&gy<152,onJ=gx>=70&&gx<146&&gy>18&&gy<152;
+ if(state==='title'){const onJ=gx<70&&gy>18&&gy<152,onH=gx>=70&&gx<146&&gy>18&&gy<152;
   if(onJ){pickHero=0;return}
-  if(inTB(TB.hero,gx,gy)||onH){if(unlock&2){if(onH)pickHero=1;else heroKey=true}else lockMsg='FINISH ALL 12 LEVELS TO UNLOCK HARRISON';return}
+  if(onH){pickHero=1;return}
+  if(inTB(TB.hero,gx,gy)){heroKey=true;return}
   if(inTB(TB.two,gx,gy)){if(unlock&1)twoKey=true;else lockMsg='FINISH LEVEL 5 TO UNLOCK TWO PLAYERS';return}}
  anyKey=true}
 let lockMsg='',lockT=0;
@@ -767,8 +768,8 @@ function updEnts(){
   if(hasRelic||L.skate){
    stars=1+(got>=total*.6?1:0)+(got>=total?1:0);score+=players[0].hp*200+(got===total?2000:0);
    if(score>hi){hi=score;store('jackson-hi',hi)}
-   justUnlocked='';const u0=unlock;if(cur>=4)unlock|=1;if(G.t==='X')unlock|=2;
-   if(unlock!==u0){store('jackson-unlock',unlock);justUnlocked=(unlock&2)&&!(u0&2)?'HARRISON UNLOCKED! PRESS C ON THE TITLE SCREEN':'TWO PLAYER MODE UNLOCKED! PRESS 2 ON THE TITLE SCREEN'}
+   justUnlocked='';const u0=unlock;if(cur>=4)unlock|=1;
+   if(unlock!==u0){store('jackson-unlock',unlock);justUnlocked='TWO PLAYER MODE UNLOCKED! PRESS 2 ON THE TITLE SCREEN'}
    for(const q of players)letGo(q);
    if(G.t==='X'){state='win';stateT=0;S('win')}
    else{state='clear';stateT=0;S('clear')}}
@@ -786,7 +787,7 @@ function update(){
  const go=anyKey;anyKey=false;const ng=newGame;newGame=false;const hk=heroKey;heroKey=false;const tk=twoKey;twoKey=false;
  if(state!=='play'){readIn(0);readIn(1)}
  if(state==='title'){cam.x=(sin(tick*.0025-1.5)*.5+.5)*(LW*T-W);cam.y=MAXCY;
-  if(hk||tk||pickHero>=0)lockT=0;if(hk&&(unlock&2)){hero=1-hero;S('on')}
+  if(hk||tk||pickHero>=0)lockT=0;if(hk){hero=1-hero;S('on')}
   if(pickHero>=0){if(pickHero!==hero){hero=pickHero;S('on')}pickHero=-1}
   if(tk&&(unlock&1)){opt2=!opt2;S(opt2?'on':'off')}
   if(go&&stateT>20){score=0;two=opt2;loadLevel(0);state='play';stateT=0}return}
@@ -959,12 +960,12 @@ function render(){
  if(state==='title'){
   g.fillStyle='rgba(6,8,20,.5)';g.fillRect(0,0,W,H);
   const hy=22+Math.round(sin(tick*.04+1.3)*2),jy=32+Math.round(sin(tick*.04)*2);
-  glow(39,hy+60,1.7,hero===1||opt2?.6:.35);glow(107,jy+56,1.7,hero===0||opt2?.6:.35);
-  if(portraitH.complete&&portraitH.naturalWidth)g.drawImage(portraitH,2,hy);
-  if(portrait.complete&&portrait.naturalWidth)g.drawImage(portrait,70,jy);
+  glow(39,jy+56,1.7,hero===0||opt2?.6:.35);glow(107,hy+60,1.7,hero===1||opt2?.6:.35);
+  if(portraitH.complete&&portraitH.naturalWidth)g.drawImage(portraitH,70,hy);
+  if(portrait.complete&&portrait.naturalWidth)g.drawImage(portrait,2,jy);
   const on=i=>opt2||hero===i;
-  textS(g,'HARRISON',8,140,on(1)?'#ffb020':(unlock&2)?'#c8c8d4':'#7a7a88',2);textS(g,'JACKSON',80,140,on(0)?'#ffb020':'#c8c8d4',2);
-  if(!opt2){const mx=hero?39:107;g.fillStyle='#ffb020';g.fillRect(mx-3,152,7,2);g.fillRect(mx-2,154,5,1);g.fillRect(mx-1,155,3,1)}
+  textS(g,'JACKSON',12,140,on(0)?'#ffb020':'#c8c8d4',2);textS(g,'HARRISON',76,140,on(1)?'#ffb020':'#c8c8d4',2);
+  if(!opt2){const mx=hero?107:39;g.fillStyle='#ffb020';g.fillRect(mx-3,152,7,2);g.fillRect(mx-2,154,5,1);g.fillRect(mx-1,155,3,1)}
   const logo=(w,x,y)=>{text(g,w,x+2,y+2,'#c8321e',5);text(g,w,x,y,'#ff9a1e',5);g.save();g.beginPath();g.rect(x-2,y,300,12);g.clip();text(g,w,x,y,'#ffe23a',5);g.restore()};
   logo('JACKSON',150,32);logo('HARRISON',150,60);
   {const A=['.##..','#..#.','#.#..','.#...','#.#.#','#..#.','.##.#'],ax=298,ay=31,q=4;
@@ -975,7 +976,7 @@ function render(){
   const tbtn=(b,label,sub,on,act)=>{g.fillStyle=act?(on?'rgba(60,170,100,.85)':'rgba(30,40,70,.85)'):'rgba(30,30,40,.7)';g.fillRect(b.x,b.y,b.w,b.h);
    g.fillStyle=act?(on?'#9af7b8':'#ffd24a'):'#5a5a6a';g.fillRect(b.x,b.y,b.w,1);g.fillRect(b.x,b.y+b.h-1,b.w,1);g.fillRect(b.x,b.y,1,b.h);g.fillRect(b.x+b.w-1,b.y,1,b.h);
    textS(g,label,b.x+fl((b.w-tw(label,1))/2),b.y+4,act?'#ffffff':'#8a8aa0',1);textS(g,sub,b.x+fl((b.w-tw(sub,1))/2),b.y+13,act?(on?'#d8ffe4':'#ffd24a'):'#6a6a7a',1)};
-  tbtn(TB.hero,(unlock&2)?'HERO: '+NAMES[hero]:'HERO: HARRISON',(unlock&2)?'TAP A BOY (C)':'LOCKED - BEAT LEVEL 12',hero===1,!!(unlock&2));
+  tbtn(TB.hero,'HERO: '+NAMES[hero],'TAP A BOY (C)',false,true);
   tbtn(TB.two,'2 PLAYERS: '+(opt2?'ON':'OFF'),(unlock&1)?'TAP TO SWITCH (2)':'LOCKED - BEAT LEVEL 5',opt2,!!(unlock&1));
   if(lockT>0)textC(g,msg,162,'#ffb0b0',1);
   if(opt2){textC(g,'PLAYER 1 ('+NAMES[hero]+'): ARROW KEYS, UP TO JUMP  -  LEFT TOUCH BUTTONS',176,'#ffd24a',1);textC(g,'PLAYER 2 ('+NAMES[1-hero]+'): W A S D KEYS, W TO JUMP  -  RIGHT TOUCH BUTTONS',186,'#7af0a0',1)}
